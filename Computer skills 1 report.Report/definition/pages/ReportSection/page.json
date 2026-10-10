@@ -1,0 +1,20 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
+  "name": "ReportSection",
+  "displayName": "Student Performance Diagnosis",
+  "displayOption": "FitToPage",
+  "height": 720,
+  "width": 1488,
+  "pageBinding": {
+    "name": "Pod",
+    "type": "Default",
+    "parameters": []
+  },
+  "visualInteractions": [
+    {
+      "source": "2abdc1b06b0413f3bb65",
+      "target": "a23b43a68d6e0ee7b6fc",
+      "type": "DataFilter"
+    }
+  ]
+}

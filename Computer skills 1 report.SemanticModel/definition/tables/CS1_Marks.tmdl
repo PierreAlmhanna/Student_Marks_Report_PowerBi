@@ -1,0 +1,374 @@
+table CS1_Marks
+	lineageTag: 318d1753-7d9a-4fd4-9a07-45ea9ac53807
+
+	measure 'Average of 60 average per Class' =
+			
+			AVERAGEX(
+				KEEPFILTERS(VALUES('CS1_Marks'[Class])),
+				CALCULATE(AVERAGE('CS1_Marks'[Mark_60]))
+			)
+		formatString: 0
+		lineageTag: bc3b1fb3-02a6-4542-972c-4d98d8ecc341
+
+		extendedProperty MeasureTemplate =
+				{
+				  "version": 0,
+				  "daxTemplateName": "AveragePerCategory"
+				}
+
+		changedProperty = FormatString
+
+	measure Grade_Percentage = DIVIDE(COUNT(CS1_Marks[Student_id]),CALCULATE(COUNT(CS1_Marks[Student_id]),REMOVEFILTERS(CS1_Marks[Char])))
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: ed6389c0-1916-4745-af54-f97a335f8e6c
+
+	measure ShowCards = IF(ISFILTERED(CS1_Marks[Class]), 1, 0)
+		formatString: 0
+		lineageTag: 95f10259-d883-4e3b-b2ba-c433f7e82b9e
+
+	measure Overall_average = ```
+			CALCULATE(AVERAGE(CS1_Marks[Mark_100]), ALL(CS1_Marks)) 
+			```
+		lineageTag: 5cacec3d-285e-4709-805a-28bc73b5b136
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Overall_SD = ```
+			CALCULATE(STDEV.P(CS1_Marks[Mark_100]), ALL(CS1_Marks)) 
+			```
+		lineageTag: dc4f2385-2f60-4fc4-94c9-ad8e83ffc989
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Class_avg = AVERAGE(CS1_Marks[Mark_100])
+		lineageTag: 3e8d743d-abd5-4ffc-8466-d82730d9b440
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Z_score = DIVIDE([Class_avg]-[Class_Benchmark_Avg], [Class_Benchmark_SD])
+		lineageTag: a4109d7c-ca4f-49ea-a1c1-6dbbd037c908
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Consistency_Benchmark = ```
+			
+			-- 1. حساب متوسط الانحرافات المعيارية لكل الصفوف (المرجع)
+			VAR Avg_SD_Across_All_Classes = 
+			    AVERAGEX(
+			        ALL(CS1_Marks[Class]), 
+			        CALCULATE(STDEV.P(CS1_Marks[Mark_100]))
+			    )
+			
+			-- 2. حساب الانحراف المعياري للصف الحالي
+			VAR Current_Class_SD = STDEV.P(CS1_Marks[Mark_100])
+			
+			-- 3. القسمة للمقارنة
+			RETURN 
+			1-(DIVIDE(Current_Class_SD, Avg_SD_Across_All_Classes))
+			```
+		lineageTag: 6c444e2e-efde-411b-9cea-f703988ed327
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Class_Percentile_Rank = ```
+			
+			VAR CurrentAvg = [Class_avg]
+			VAR AllClasses = ALL(CS1_Marks[Class])
+			VAR TotalClasses = COUNTROWS(AllClasses)
+			VAR RankOfClass = 
+			    RANKX(
+			        AllClasses, 
+			        [Class_Avg], 
+			        CurrentAvg, 
+			        ASC
+			    )
+			RETURN
+			DIVIDE(RankOfClass, TotalClasses)
+			```
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: 8c2a2f54-2937-4254-b091-d92c71bf640c
+
+	measure Class_Failure_Rate =
+			
+			DIVIDE(
+			    CALCULATE(COUNT(CS1_Marks[Student_id]), CS1_Marks[Passed] = "0"),
+			    COUNT(CS1_Marks[Student_id])
+			)
+		formatString: 0
+		lineageTag: f646241c-0c89-404f-bcf9-3af91c193967
+
+	measure Class_Benchmark_Avg = ```
+			
+			AVERAGEX(
+			    ALL(CS1_Marks[Class]), 
+			    [Class_Avg]
+			)
+			```
+		lineageTag: 661bc005-cfc2-41a1-92fd-92db8579c4aa
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Class_Benchmark_SD = ```
+			
+			AVERAGEX(
+			    ALL(CS1_Marks[Class]), 
+			    CALCULATE(STDEV.P(CS1_Marks[Mark_100]))
+			)
+			```
+		lineageTag: 01f166c3-7e0a-4459-95b6-a9e9c756e2b6
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Adj_mark_100_Measure = ```
+			
+			VAR Scenario = SELECTEDVALUE(Scenario_Table[Scenario_id], 0)
+			RETURN 
+			SUMX(
+			    CS1_Marks,
+			    SWITCH(
+			        Scenario,
+			        0, CS1_Marks[Mark_100],
+			        
+			        1, IF(
+			            CS1_Marks[Cause_of_Failure] = "Failure due to only 40",
+			            MIN(CS1_Marks[Mark_40] + 3, 40) + CS1_Marks[Mark_60],
+			            CS1_Marks[Mark_100]
+			        ),
+			        
+			        2, IF(
+			             CS1_Marks[Passed] = FALSE() && CS1_Marks[Mark_60] >= 28,
+			             MIN(CS1_Marks[Mark_40] + 2, 40) + CS1_Marks[Mark_60], 
+			             CS1_Marks[Mark_100]
+			        ),
+			        CS1_Marks[Mark_100]
+			    )
+			)
+			```
+		formatString: 0
+		lineageTag: 7b5145f1-f94c-45dc-8ac4-814e5fb89e05
+
+	measure Adj_Pass_Rate =
+			DIVIDE(
+			                        COUNTROWS(FILTER(CS1_Marks, [Adj_mark_100_Measure] >= 50)),
+			                        COUNTROWS(CS1_Marks)
+			)
+		lineageTag: 0d681c10-31a4-4117-aba2-a90e5e311b52
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Adj_Fail_Rate = 1 -  [Adj_Pass_Rate]
+		lineageTag: 4c5390b9-b7f4-4ea5-b6c8-e8f0e82937e7
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Adj_Student_Count = COUNTROWS(FILTER(CS1_Marks, [Adj_mark_100_Measure]))
+		formatString: 0
+		lineageTag: 845652c4-dc5b-4cf2-bf9b-e34a4aab7d45
+
+	column Sequence
+		dataType: string
+		lineageTag: 0913900d-66d9-424e-9197-f271d2ea34be
+		summarizeBy: none
+		sourceColumn: Sequence
+
+		annotation SummarizationSetBy = Automatic
+
+	column Student_id
+		dataType: string
+		lineageTag: 7ea3a7d1-c4c4-45a6-b330-cdc294757480
+		summarizeBy: none
+		sourceColumn: Student_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column Class
+		dataType: string
+		lineageTag: 46df87fa-f289-4915-979d-d64e1764a39d
+		summarizeBy: none
+		sourceColumn: Class
+
+		annotation SummarizationSetBy = Automatic
+
+	column Mark_25
+		dataType: int64
+		formatString: 0
+		lineageTag: 9a1858e1-b2d5-410b-9159-0b6971a2508a
+		summarizeBy: sum
+		sourceColumn: Mark_25
+
+		annotation SummarizationSetBy = Automatic
+
+	column Mark_15
+		dataType: int64
+		formatString: 0
+		lineageTag: 3c410f31-f3c1-429a-a4f8-efa4d39fed4c
+		summarizeBy: sum
+		sourceColumn: Mark_15
+
+		annotation SummarizationSetBy = Automatic
+
+	column Mark_40
+		dataType: int64
+		formatString: 0
+		lineageTag: 705c192a-bddf-4e7d-a226-3072e17539cf
+		summarizeBy: sum
+		sourceColumn: Mark_40
+
+		annotation SummarizationSetBy = Automatic
+
+	column Mark_60
+		dataType: int64
+		formatString: 0
+		lineageTag: d9ed4b99-dc64-4712-9fea-96224b6f23d2
+		summarizeBy: sum
+		sourceColumn: Mark_60
+
+		annotation SummarizationSetBy = Automatic
+
+	column Mark_100
+		dataType: int64
+		formatString: 0
+		lineageTag: 42dfecc8-6409-4ed7-b5e1-3ee22bda4cab
+		summarizeBy: sum
+		sourceColumn: Mark_100
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation __PBI_SemanticLinks = [{"LinkTarget":{"TableName":"CS1_Marks","TableItemName":"Mark_100 (bins)","ObjectType":4},"LinkType":"UsedInGroup"}]
+
+	column Char
+		dataType: string
+		lineageTag: 5d2bacf1-12e4-43da-b65b-25259e44503e
+		summarizeBy: none
+		sourceColumn: Char
+
+		annotation SummarizationSetBy = Automatic
+
+	column Passed
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 95e4f23c-fa9e-46ee-90ba-93b85167c322
+		summarizeBy: none
+		sourceColumn: Passed
+
+		annotation SummarizationSetBy = Automatic
+
+	column Below_Threshold_60
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 92dfb5c4-0f0a-4ce8-8652-5c18fbff5993
+		summarizeBy: none
+		sourceColumn: Below_Threshold_60
+
+		annotation SummarizationSetBy = Automatic
+
+	column Below_Threshold_40
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 572cc3be-da07-4040-be15-13d0326a14fd
+		summarizeBy: none
+		sourceColumn: Below_Threshold_40
+
+		annotation SummarizationSetBy = Automatic
+
+	column Below_Threshold_25
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: b5279135-f81c-46c7-8aa2-f5ab4409cbb4
+		summarizeBy: none
+		sourceColumn: Below_Threshold_25
+
+		annotation SummarizationSetBy = Automatic
+
+	column Below_threshold_15
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 927f6e1b-a9f2-4fcd-b79f-1e2f4e0a0f9a
+		summarizeBy: none
+		sourceColumn: Below_threshold_15
+
+		annotation SummarizationSetBy = Automatic
+
+	column Cause_of_Failure
+		dataType: string
+		lineageTag: 0ff292bb-625d-44b3-9d65-5bc3a46ac2d7
+		summarizeBy: none
+		sourceColumn: Cause_of_Failure
+
+		annotation SummarizationSetBy = Automatic
+
+	column Cause_of_Failure_40
+		dataType: string
+		lineageTag: a3205bec-cdc7-436f-b176-695d7872eb22
+		summarizeBy: none
+		sourceColumn: Cause_of_Failure_40
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Mark_100 (bins)' =
+			IF(
+				ISBLANK('CS1_Marks'[Mark_100]),
+				BLANK(),
+				INT('CS1_Marks'[Mark_100] / 3) * 3
+			)
+		formatString: 0
+		lineageTag: eced5404-a6bb-431e-9ac6-141ac632790a
+		summarizeBy: none
+
+		extendedProperty GroupingMetadata =
+				{
+				  "version": 0,
+				  "groupedColumns": [
+				    {
+				      "Column": {
+				        "Expression": {
+				          "SourceRef": {
+				            "Entity": "CS1_Marks"
+				          }
+				        },
+				        "Property": "Mark_100"
+				      }
+				    }
+				  ],
+				  "binningMetadata": {
+				    "binSize": {
+				      "value": 3.0,
+				      "unit": 0
+				    }
+				  }
+				}
+
+		annotation GroupingDesignState = {"Version":0,"Sources":[{"Name":"c","Entity":"CS1_Marks"}],"GroupedColumns":[{"Column":{"Expression":{"SourceRef":{"Source":"c"}},"Property":"Mark_100"}}],"BinItem":{"Expression":{"Floor":{"Expression":{"Column":{"Expression":{"SourceRef":{"Source":"c"}},"Property":"Mark_100"}},"Size":3.0}}}}
+
+		annotation SummarizationSetBy = Automatic
+
+	partition CS1_Marks = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents("C:\Users\pieer\Desktop\Marks Data.xlsx"), null, true),
+				    Table2_Table = Source{[Item="Table2",Kind="Table"]}[Data],
+				    #"Changed Type" = Table.TransformColumnTypes(Table2_Table,{{"Sequence", type text}, {"Student_id", type text}, {"Class", type text}, {"25", Int64.Type}, {"15", Int64.Type}, {"40", Int64.Type}, {"60", Int64.Type}, {"100", Int64.Type}, {"Char", type text}}),
+				    #"Added Conditional Column" = Table.AddColumn(#"Changed Type", "FP", each if [100] < 50 then 0 else 1),
+				    #"Changed Type1" = Table.TransformColumnTypes(#"Added Conditional Column",{{"FP", type logical}}),
+				    #"Renamed Columns" = Table.RenameColumns(#"Changed Type1",{{"FP", "Passed"}}),
+				    #"Added Conditional Column1" = Table.AddColumn(#"Renamed Columns", "Below_Threshold_60", each if [60] < 30 then true else false),
+				    #"Changed Type2" = Table.TransformColumnTypes(#"Added Conditional Column1",{{"Below_Threshold_60", type logical}}),
+				    #"Added Conditional Column2" = Table.AddColumn(#"Changed Type2", "Below_Threshold_40", each if [40] < 20 then true else false),
+				    #"Changed Type3" = Table.TransformColumnTypes(#"Added Conditional Column2",{{"Below_Threshold_40", type logical}}),
+				    #"Added Conditional Column3" = Table.AddColumn(#"Changed Type3", "Below_Threshold_25", each if [25] < 12 then true else false),
+				    #"Changed Type4" = Table.TransformColumnTypes(#"Added Conditional Column3",{{"Below_Threshold_25", type logical}}),
+				    #"Added Conditional Column4" = Table.AddColumn(#"Changed Type4", "Below_threshold_15", each if [15] < 7 then true else false),
+				    #"Changed Type5" = Table.TransformColumnTypes(#"Added Conditional Column4",{{"Below_threshold_15", type logical}}),
+				    #"Cause of failure 40 or 60 or both" = Table.AddColumn(#"Changed Type5", "Cause_of_Failure", each if [Passed] = false then if [Below_Threshold_60] = true and [Below_Threshold_40] = true then "Failure due to 60 & 40" else if [Below_Threshold_60] = true and [Below_Threshold_40] = false then "Failure due to only 60" else if [Below_Threshold_60] = false and [Below_Threshold_40] = true then "Failure due to only 40" else null
+				else null),
+				    #"Cause of failure 40 details" = Table.AddColumn(#"Cause of failure 40 or 60 or both", "Cause_of_Failure_40", each if [Cause_of_Failure] <> null and [Below_Threshold_40] = true and [Below_Threshold_25] = true and [Below_threshold_15] = true then "Failure due to 15 & 25"
+				else if [Cause_of_Failure] <> null and [Below_Threshold_40] = true and [Below_threshold_15] = true then "Failure due to only 15"
+				else if [Cause_of_Failure] <> null and [Below_Threshold_40] = true and [Below_Threshold_25] = true then "Failure due to only 25"
+				else null),
+				    #"Renamed Columns1" = Table.RenameColumns(#"Cause of failure 40 details",{{"60", "Mark_60"}, {"40", "Mark_40"}, {"25", "Mark_25"}, {"15", "Mark_15"}, {"100", "Mark_100"}})
+				in
+				    #"Renamed Columns1"
+
+	annotation PBI_ResultType = Table
+
